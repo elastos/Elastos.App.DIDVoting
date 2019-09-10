@@ -1,0 +1,33 @@
+## service url
+elaservice.blockAgentPrefix      = @block_agent_url@
+
+## DID
+did.did = @did@
+did.privateKey = @did_private_key@
+did.publicKey = @did_public_key@
+did.memo = "theme derive derive admit visual plug later roof demise knee indoor warfare"
+
+## log
+logging.level.root        =INFO
+logging.level.org.elastos =DEBUG
+
+
+# templates
+spring.mvc.view.prefix=classpath:/templates/
+spring.mvc.view.suffix=.html
+
+# encoding
+spring.http.encoding.charset=UTF-8
+spring.http.encoding.force=true
+spring.http.encoding.enabled=true
+
+
+## server config
+server.port          = 8095
+server.tomcat.basedir=./
+server.tomcat.accesslog.enabled=true
+server.tomcat.accesslog.directory=./logs/access/
+server.tomcat.accesslog.prefix=access
+server.tomcat.accesslog.pattern=%{yyyyMMddHHmmssSSS}t|%a|%h|%H|%r|%{Referer}i|%s|%b|%D
+server.connection-timeout=60000
+server.servlet.session.timeout= 1800
