@@ -24,6 +24,7 @@ spring.http.encoding.enabled=true
 
 ## server config
 server.port          = 8095
+server.tomcat.uri-encoding=UTF-8
 server.tomcat.basedir=./
 server.tomcat.accesslog.enabled=true
 server.tomcat.accesslog.directory=./logs/access/
