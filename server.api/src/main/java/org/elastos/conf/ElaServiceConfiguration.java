@@ -10,15 +10,33 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConfigurationProperties("elaservice")
+@ConfigurationProperties("serviceurl")
 public class ElaServiceConfiguration {
-    private String blockAgentPrefix;
+    private String didServicePrefix;
+    private String didNodePrefix;
+    private String elaNodePrefix;
 
-    public String getBlockAgentPrefix() {
-        return blockAgentPrefix;
+    public String getDidServicePrefix() {
+        return didServicePrefix;
     }
 
-    public void setBlockAgentPrefix(String blockAgentPrefix) {
-        this.blockAgentPrefix = blockAgentPrefix;
+    public void setDidServicePrefix(String didServicePrefix) {
+        this.didServicePrefix = didServicePrefix;
+    }
+
+    public String getDidNodePrefix() {
+        return didNodePrefix;
+    }
+
+    public void setDidNodePrefix(String didNodePrefix) {
+        this.didNodePrefix = didNodePrefix;
+    }
+
+    public String getElaNodePrefix() {
+        return elaNodePrefix;
+    }
+
+    public void setElaNodePrefix(String elaNodePrefix) {
+        this.elaNodePrefix = elaNodePrefix;
     }
 }

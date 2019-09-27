@@ -44,7 +44,7 @@ public class DidVoteService {
             return new ServerResponse().setState(RetCode.ERROR_INTERNAL).setMsg("打包信息错误").toJsonString();
         }
 
-        String txid = didService.upChainByAgent(elaServiceConfiguration.getBlockAgentPrefix(), null, null, rawData);
+        String txid = didService.upChainByAgent(elaServiceConfiguration.getDidServicePrefix(), null, null, rawData);
         if (null == txid) {
             logger.error("Err save upChainData failed.");
             System.out.println("Err save upChainData failed.");

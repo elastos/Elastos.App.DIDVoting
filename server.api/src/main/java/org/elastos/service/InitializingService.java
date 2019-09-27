@@ -15,11 +15,17 @@ public class InitializingService implements InitializingBean {
     @Autowired
     DidVoteService didVoteService;
 
+    @Autowired
+    VoteRecordComponent voteRecordComponent;
+
+    @Autowired
+    VoteComponent voteComponent;
+
     @Override
     public void afterPropertiesSet() throws Exception {
-        System.out.println("------------In PlatformInitialization----------------");
-        didVoteService.initService();
-        System.out.println("------------Out PlatformInitialization----------------");
+        logger.info("------------In PlatformInitialization----------------");
+        voteComponent.initService();
+        logger.info("------------Out PlatformInitialization----------------");
     }
 
 }
