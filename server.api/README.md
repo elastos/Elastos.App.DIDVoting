@@ -44,7 +44,7 @@ $uname java -jar did.voting.service.api-0.0.1.jar
 ```
 ## Web Service APIs
 
-### Send Blessing on chain
+### Send vote on chain
 ```yaml
 HTTP: POST
 URL: /api/1/didvoting/save
@@ -92,4 +92,20 @@ If Success, we will get response like:
 }
 ```
 
+### Get vote did
+```yaml
+HTTP: GET 
+URL: /api/1/didvoting/did
+HEADERS: 
+    Content-Type: application/json
+```
+If Success, we will get response like:
+```json
+{
+    "data": {
+        "did": "iY2UzLhBPCxxTs9BfwHyGQWQiHo7u4FECM"
+    },
+    "status": 200
+}
+```
 
