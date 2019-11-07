@@ -7,6 +7,7 @@ public class VoteTopicObj {
     Integer maxSelections;
     Long startingHeight;
     Long endHeight;
+    Double limitBalance;
     List<Integer> optionList;
 
     public String getTopicId() {
@@ -39,6 +40,14 @@ public class VoteTopicObj {
 
     public void setEndHeight(Long endHeight) {
         this.endHeight = endHeight;
+    }
+
+    public Double getLimitBalance() {
+        return limitBalance;
+    }
+
+    public void setLimitBalance(Double limitBalance) {
+        this.limitBalance = limitBalance;
     }
 
     public List<Integer> getOptionList() {

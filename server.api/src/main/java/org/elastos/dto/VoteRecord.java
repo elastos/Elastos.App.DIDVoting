@@ -28,6 +28,8 @@ public class VoteRecord {
     private String publicKey;
     @Column(name="did", nullable = false, length = 100)
     private String did;
+    @Column(name="did_height", nullable = false)
+    private Long didHeight;
 
     public Long getId() {
         return id;
@@ -107,5 +109,13 @@ public class VoteRecord {
 
     public void setDid(String did) {
         this.did = did;
+    }
+
+    public Long getDidHeight() {
+        return didHeight;
+    }
+
+    public void setDidHeight(Long didHeight) {
+        this.didHeight = didHeight;
     }
 }

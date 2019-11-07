@@ -10,9 +10,11 @@ import org.elastos.constants.VoteTopicType;
 import org.elastos.dao.VoteRecordRepository;
 import org.elastos.dto.VoteRecord;
 import org.elastos.pojo.DidProperty;
+import org.elastos.util.RetResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
@@ -73,7 +75,7 @@ public class VoteRecordComponent {
                 content = obj.getString("RequestedConent");
             }
 
-            if (StringUtils.isAnyBlank(did, content)){
+            if (StringUtils.isAnyBlank(did, content)) {
                 logger.error("Err parseVoteData topic failed. data:" + data);
                 return null;
             }
@@ -104,18 +106,16 @@ public class VoteRecordComponent {
         VoteRecord voteRecord = new VoteRecord();
         if (voteKeyParseList.contains("topic_object")) {
             voteRecord.setType(VoteTopicType.VOTE_TOPIC_TYPE_OBJECT);
-            voteRecord = parseVoteData(voteRecord, vote.getValue());
         } else if (voteKeyParseList.contains("vote_object")) {
             voteRecord.setType(VoteTopicType.VOTE_TOPIC_TYPE_VOTE);
-            voteRecord = parseVoteData(voteRecord, vote.getValue());
         } else if (voteKeyParseList.contains("topic_result")) {
             voteRecord.setType(VoteTopicType.VOTE_TOPIC_TYPE_RESULT);
-            voteRecord = parseVoteData(voteRecord, vote.getValue());
         } else {
             logger.info("saveVoteInfo can not parse:" + voteKey);
             return;
         }
 
+        voteRecord = parseVoteData(voteRecord, vote.getValue());
         if (null == voteRecord) {
             return;
         }

@@ -14,7 +14,7 @@ public class VoteScheduledTask {
 
     private Logger logger = LoggerFactory.getLogger(VoteScheduledTask.class);
     private static final SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
-    private boolean onFlag = true;
+    private boolean onFlag = false;
 
     public void setOnFlag(boolean onFlag) {
         this.onFlag = onFlag;
@@ -26,7 +26,8 @@ public class VoteScheduledTask {
     @Autowired
     VoteComponent voteComponent;
 
-    @Scheduled(initialDelay = 60*1000, fixedDelay = 60*1000)
+//    @Scheduled(initialDelay = 60*1000, fixedDelay = 60*1000)
+    @Scheduled(fixedDelay = 60*1000)
     public void recordTask() {
         if (!onFlag) {
             return;

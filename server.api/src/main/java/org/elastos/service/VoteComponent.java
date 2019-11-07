@@ -3,8 +3,6 @@ package org.elastos.service;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.TypeReference;
-import com.alibaba.fastjson.parser.Feature;
-import com.alibaba.fastjson.serializer.SerializerFeature;
 import org.elastos.conf.DidConfiguration;
 import org.elastos.conf.ElaServiceConfiguration;
 import org.elastos.constants.RetCode;
@@ -52,42 +50,10 @@ public class VoteComponent {
     private Long voteBlockHeight = 0L;
 
     private void saveToVoteCheckList(VoteRecord voteRecord) {
-        JSONObject topic = null;
-        Long startHeight = null;
-        Long endHeight = null;
-        Integer maxSelections = null;
-        List<VoteOption> options = null;
-        try {
-            topic = JSON.parseObject(voteRecord.getContent());
-            startHeight = topic.getLong("Starting-height");
-            endHeight = topic.getLong("End-height");
-            maxSelections = topic.getInteger("Max-Selections");
-            options = topic.getObject("Options", new TypeReference<List<VoteOption>>() {
-            });
-        } catch (Exception e) {
-            e.printStackTrace();
+        VoteTopicObj voteTopicObj = didVoteService.getVoteTopicObj(voteRecord);
+        if (null != voteTopicObj) {
+            voteCheckList.add(voteTopicObj);
         }
-
-        if ((null == startHeight) || (null == endHeight)
-                || (null == maxSelections) || (null == options)
-                || options.isEmpty()) {
-            logger.error("Err saveToVoteCheckList key:" + voteRecord.getPropertyKey()
-                    + " value:" + voteRecord.getPropertyValue());
-            return;
-        }
-
-        VoteTopicObj voteTopicObj = new VoteTopicObj();
-        voteTopicObj.setTopicId(voteRecord.getTopicId());
-        voteTopicObj.setStartingHeight(startHeight);
-        voteTopicObj.setEndHeight(endHeight);
-        voteTopicObj.setMaxSelections(maxSelections);
-        List<Integer> ops = new ArrayList<>();
-        for (VoteOption op : options) {
-            ops.add(op.getOptionID());
-        }
-        voteTopicObj.setOptionList(ops);
-
-        voteCheckList.add(voteTopicObj);
     }
 
     private void getNewVoteTopicInDb(Long checkHeight) {
@@ -120,7 +86,8 @@ public class VoteComponent {
     }
 
 
-    private void count1Vote(Map<Integer, Long> voteCounter, VoteRecord voteRecord, Integer maxSelect) throws Exception {
+    boolean count1Vote(Map<Integer, Long> voteCounter, VoteRecord voteRecord, VoteTopicObj obj) {
+        Integer maxSelect = obj.getMaxSelections();
         JSONObject vote = null;
         List<VoteOption> options = null;
         try {
@@ -129,13 +96,14 @@ public class VoteComponent {
             });
         } catch (Exception e) {
             e.printStackTrace();
-            throw e;
+            logger.error("Err count1Vote exception:" + e.getMessage());
+            return false;
         }
 
         if ((null == options) || options.isEmpty() || (options.size() > maxSelect)) {
             logger.error("Err count1Vote vote key:" + voteRecord.getPropertyKey()
                     + " value:" + voteRecord.getPropertyValue());
-            return;
+            return false;
         }
 
         String address = this.getAddressFromPublicKey(voteRecord.getPublicKey());
@@ -144,8 +112,16 @@ public class VoteComponent {
             rest = elaServiceComponent.getRestOfEla(address);
         } catch (Exception e) {
             e.printStackTrace();
-            throw e;
+            logger.error("Err count1Vote getRestOfEla exception:" + e.getMessage());
+            return false;
         }
+
+        Double limitBalance = obj.getLimitBalance();
+        if ((null != limitBalance) && (rest < limitBalance)) {
+            logger.error("Err count1Vote limit balance failed.");
+            return false;
+        }
+
         Long count = 0L;
         if (null != rest) {
             count = Math.round(rest);
@@ -160,13 +136,16 @@ public class VoteComponent {
                 Long c = voteCounter.get(id);
                 if (null != c) {
                     c += count;
+                } else {
+                    return false;
                 }
                 voteCounter.put(id, c);
             }
         }
+        return true;
     }
 
-    private boolean sentVoteOnChain(String topicId, List<VoteResult> voteResults) {
+    private boolean sentResultOnChain(String topicId, List<VoteResult> voteResults) {
         JSONObject opts = new JSONObject(true);
         opts.put("Options", voteResults);
         JSONObject data = new JSONObject(true);
@@ -222,12 +201,7 @@ public class VoteComponent {
         }
 
         for (VoteRecord record : voteRecords) {
-            try {
-                count1Vote(voteCounter, record, obj.getMaxSelections());
-            } catch (Exception e) {
-                e.printStackTrace();
-                return false;
-            }
+            count1Vote(voteCounter, record, obj);
         }
 
         //Save all vote info
@@ -257,7 +231,7 @@ public class VoteComponent {
             }
         }
 
-        return sentVoteOnChain(obj.getTopicId(), voteResultList);
+        return sentResultOnChain(obj.getTopicId(), voteResultList);
     }
 
     void checkVoteTask() {

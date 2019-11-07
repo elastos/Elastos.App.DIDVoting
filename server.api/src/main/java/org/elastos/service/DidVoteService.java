@@ -1,17 +1,28 @@
 package org.elastos.service;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.TypeReference;
+import com.alibaba.fastjson.parser.Feature;
 import org.apache.commons.lang3.StringUtils;
 import org.elastos.conf.DidConfiguration;
 import org.elastos.conf.ElaServiceConfiguration;
 import org.elastos.constants.RetCode;
+import org.elastos.constants.VoteTopicType;
+import org.elastos.dao.VoteRecordRepository;
+import org.elastos.dto.VoteRecord;
+import org.elastos.pojo.DidProperty;
+import org.elastos.pojo.VoteOption;
+import org.elastos.pojo.VoteTopicObj;
+import org.elastos.util.RetResult;
 import org.elastos.util.ServerResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class DidVoteService {
@@ -23,6 +34,17 @@ public class DidVoteService {
 
     @Autowired
     ElaServiceConfiguration elaServiceConfiguration;
+
+    @Autowired
+    ElaServiceComponent elaServiceComponent;
+
+    @Autowired
+    VoteComponent voteComponent;
+
+    @Autowired
+    VoteRecordRepository voteRecordRepository;
+
+    private ElaDidService elaDidService = new ElaDidService();
 
     private ElaDidService didService = new ElaDidService();
 
@@ -37,6 +59,18 @@ public class DidVoteService {
 
         String didPrivateKey = didConfiguration.getPrivateKey();
         String did = didConfiguration.getDid();
+
+        RetResult<VoteRecord> recordRetResult = this.checkVote(address, data);
+        if (!recordRetResult.isSuccess()) {
+            logger.error("Err checkVote failed.");
+            return new ServerResponse().setState(RetCode.ERROR_PARAMETER).setMsg("无效参数").toJsonString();
+        }
+
+        VoteRecord record = voteRecordRepository.save(recordRetResult.getData());
+        if (null == record) {
+            logger.error("Err checkVote failed.");
+            return new ServerResponse().setState(RetCode.ERROR_INTERNAL).setMsg("服务内部异常").toJsonString();
+        }
 
         String rawData = didService.packDidProperty(didPrivateKey, address, data);
         if (null == rawData) {
@@ -67,4 +101,219 @@ public class DidVoteService {
 
         return new ServerResponse().setState(RetCode.SUCCESS).setData(map).toJsonString();
     }
+
+    private VoteRecord verifyCheck(VoteRecord voteRecord, String data) {
+        try {
+            JSONObject map = JSON.parseObject(data, Feature.OrderedField);
+            String encode = map.getString("DataStr");
+            String sign = map.getString("Signature");
+            if (StringUtils.isAnyBlank(encode, sign)) {
+                logger.error("Err verifyCheck DataStr sign failed. data:" + data);
+                return null;
+            }
+
+            String msg = java.net.URLDecoder.decode(encode, "UTF-8");
+            JSONObject obj = JSON.parseObject(msg);
+            String publicKey = obj.getString("PublicKey");
+
+            //1. Check signature
+            boolean verify = elaDidService.verifyMessage(publicKey, sign, msg);
+            if (!verify) {
+                logger.error("Err verifyCheck signature verify failed. data:" + data);
+                return null;
+            }
+
+            //2. Check public key(early than vote time, and has to be on chain)
+            String did = obj.getString("DID");
+
+            DidProperty didProperty = elaServiceComponent.getPublicKey(did);
+            if ((null == didProperty) || (didProperty.getValue() == null)) {
+                logger.error("Err verifyCheck public key verify failed. No public key");
+                return null;
+            }
+
+            if (!didProperty.getValue().equals(publicKey)) {
+                logger.error("Err verifyCheck public key verify failed. wrong public key of did:" + did);
+                return null;
+            }
+
+            String content = obj.getString("RequestedContent");
+            if (StringUtils.isBlank(content)) {
+                //Old version being compatible
+                content = obj.getString("RequestedConent");
+            }
+
+            if (StringUtils.isAnyBlank(did, content)) {
+                logger.error("Err verifyCheck content failed. data:" + data);
+                return null;
+            }
+            voteRecord.setContent(content);
+            voteRecord.setPublicKey(publicKey);
+            voteRecord.setDid(did);
+            voteRecord.setDidHeight(didProperty.getHeight());
+            return voteRecord;
+        } catch (Exception e) {
+            e.printStackTrace();
+            logger.error("Err verifyCheck exception:" + e.getMessage());
+            return null;
+        }
+    }
+
+
+    private VoteRecord topicChecker(VoteRecord voteRecord) {
+        VoteTopicObj voteTopicObj = this.getVoteTopicObj(voteRecord);
+        if (null != voteTopicObj) {
+            return voteRecord;
+        } else {
+            logger.error("Err topicChecker failed.");
+            return null;
+        }
+    }
+
+    private VoteRecord setHeight(VoteRecord voteRecord) {
+        Long height;
+        try {
+            height = elaServiceComponent.getBlockHeightOfDid();
+        } catch (Exception e) {
+            e.printStackTrace();
+            logger.error("Err topicChecker exception:" + e.getMessage());
+            return null;
+        }
+
+        voteRecord.setHeight(height);
+        return voteRecord;
+    }
+
+    private VoteRecord voteChecker(VoteRecord voteRecord, String voterDid) {
+        //1. did should the same
+        if (!voteRecord.getDid().equals(voterDid)) {
+            logger.error("Err voteChecker did failed. address did:" + voterDid);
+            return null;
+        }
+
+        Sort sort = new Sort(Sort.Direction.DESC, "height");
+        List<VoteRecord> voteResults = voteRecordRepository.findByTopicIdAndType(voteRecord.getTopicId(), VoteTopicType.VOTE_TOPIC_TYPE_OBJECT, sort);
+        if (voteResults.isEmpty()) {
+            logger.error("Err voteChecker find topic failed. topicId:" + voteRecord.getTopicId());
+            return null;
+        }
+
+        //2. DID创建时间要早于投票开始时间
+        VoteRecord topicRecord = voteResults.get(0);
+        if (voteRecord.getHeight() <= topicRecord.getHeight()) {
+            logger.error("Err voteChecker height check failed. topicId:" + voteRecord.getTopicId());
+            return null;
+        }
+
+        VoteTopicObj voteTopicObj = getVoteTopicObj(topicRecord);
+        if (null == voteTopicObj) {
+            logger.error("Err voteChecker height check failed. topicId:" + voteRecord.getTopicId());
+            return null;
+        }
+
+        Map<Integer, Long> voteCounter = new HashMap<>();
+        for (Integer opt : voteTopicObj.getOptionList()) {
+            voteCounter.put(opt, 0L);
+        }
+
+        if (!voteComponent.count1Vote(voteCounter, voteRecord, voteTopicObj)) {
+            logger.error("Err voteChecker content check failed. topicId:" + voteRecord.getTopicId());
+            return null;
+        }
+
+        return voteRecord;
+    }
+
+    VoteTopicObj getVoteTopicObj(VoteRecord voteRecord) {
+        JSONObject topic;
+        Long startHeight = null;
+        Long endHeight = null;
+        Double limitBalance = null;
+        Integer maxSelections = null;
+        List<VoteOption> options = null;
+        try {
+            topic = JSON.parseObject(voteRecord.getContent());
+            startHeight = topic.getLong("Starting-height");
+            endHeight = topic.getLong("End-height");
+            maxSelections = topic.getInteger("Max-Selections");
+            limitBalance = topic.getDouble("Limit-balance");
+            options = topic.getObject("Options", new TypeReference<List<VoteOption>>() {
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        if ((null == startHeight) || (null == endHeight)
+                || (null == maxSelections) || (null == options)
+                || options.isEmpty()) {
+            logger.error("Err getVoteTopicObj key:" + voteRecord.getPropertyKey()
+                    + " value:" + voteRecord.getPropertyValue());
+            return null;
+        }
+
+        VoteTopicObj voteTopicObj = new VoteTopicObj();
+        voteTopicObj.setTopicId(voteRecord.getTopicId());
+        voteTopicObj.setStartingHeight(startHeight);
+        voteTopicObj.setEndHeight(endHeight);
+        voteTopicObj.setLimitBalance(limitBalance);
+        voteTopicObj.setMaxSelections(maxSelections);
+        List<Integer> ops = new ArrayList<>();
+        for (VoteOption op : options) {
+            ops.add(op.getOptionID());
+        }
+        voteTopicObj.setOptionList(ops);
+
+        return voteTopicObj;
+    }
+
+
+    private VoteRecord resultChecker(VoteRecord voteRecord) {
+        return voteRecord;
+    }
+
+    RetResult<VoteRecord> checkVote(String address, String data) {
+        String[] list = address.split("/");
+        if (list.length == 0) {
+            logger.info("Vote address format error.");
+            return RetResult.retErr("Vote address format error.");
+        }
+
+        List<String> voteKeyParseList = Arrays.asList(list);
+        VoteRecord voteRecord = new VoteRecord();
+        String topicId = voteKeyParseList.get(1);
+        voteRecord.setTopicId(topicId);
+        voteRecord.setPropertyKey(address);
+        voteRecord.setPropertyValue(data);
+        voteRecord.setServiceDid(didConfiguration.getDid());
+        voteRecord = this.setHeight(voteRecord);
+        if (null == voteRecord) {
+            return RetResult.retErr("Vote network error.");
+        }
+
+        voteRecord = this.verifyCheck(voteRecord, data);
+        if (null == voteRecord) {
+            return RetResult.retErr("Vote verify error");
+        }
+
+        if (voteKeyParseList.contains("topic_object")) {
+            voteRecord.setType(VoteTopicType.VOTE_TOPIC_TYPE_OBJECT);
+            voteRecord = this.topicChecker(voteRecord);
+        } else if (voteKeyParseList.contains("vote_object")) {
+            voteRecord.setType(VoteTopicType.VOTE_TOPIC_TYPE_VOTE);
+            voteRecord = this.voteChecker(voteRecord, voteKeyParseList.get(3));
+        } else if (voteKeyParseList.contains("topic_result")) {
+            voteRecord.setType(VoteTopicType.VOTE_TOPIC_TYPE_RESULT);
+            voteRecord = this.resultChecker(voteRecord);
+        } else {
+            logger.info("Vote address not support. address:" + address);
+            return RetResult.retErr("Vote address not support. address:" + address);
+        }
+
+        if (null == voteRecord) {
+            return RetResult.retErr("Vote check failed.");
+        }
+
+        return RetResult.retOk(voteRecord);
+    }
+
 }

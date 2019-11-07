@@ -56,6 +56,31 @@ public class ElaServiceComponent {
         return obj;
     }
 
+    DidProperty getPublicKey(String did){
+        String response = HttpUtil.get(elaServiceConfiguration.getDidServicePrefix()
+                + "/api/1/didexplorer/did/" + did
+                + "/property?key=PublicKey", null);
+        if (null == response) {
+            logger.error("Err: getPublicKey HttpUtil.get failed");
+            throw new RuntimeException("getPublicKey HttpUtil.get failed");
+        }
+
+        JSONObject msg = JSON.parseObject(response);
+        if (msg.getIntValue("status") == 200) {
+            String result = msg.getString("result");
+            if (StringUtils.isBlank(result)) {
+                return null;
+            } else {
+                List<DidProperty> list = JSON.parseArray(result).toJavaList(DidProperty.class);
+                DidProperty property = list.get(0);
+                return property;
+            }
+        } else {
+            System.out.println("Err: getPublicKey failed state:" + msg.get("status") + " result:" + msg.get("result"));
+            return null;
+        }
+    }
+
     List<DidProperty> getVoteInfo(Long height){
         String response = HttpUtil.get(elaServiceConfiguration.getDidServicePrefix()
                 + "/api/1/didexplorer/did/" + didConfiguration.getDid()
