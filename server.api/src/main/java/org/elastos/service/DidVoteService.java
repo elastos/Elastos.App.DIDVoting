@@ -14,7 +14,7 @@ import org.elastos.dto.VoteRecord;
 import org.elastos.pojo.DidProperty;
 import org.elastos.pojo.VoteOption;
 import org.elastos.pojo.VoteTopicObj;
-import org.elastos.util.RetResult;
+import org.elastos.util.RetResultB;
 import org.elastos.util.ServerResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,13 +60,13 @@ public class DidVoteService {
         String didPrivateKey = didConfiguration.getPrivateKey();
         String did = didConfiguration.getDid();
 
-        RetResult<VoteRecord> recordRetResult = this.checkVote(address, data);
-        if (!recordRetResult.isSuccess()) {
+        RetResultB<VoteRecord> recordRetResultB = this.checkVote(address, data);
+        if (!recordRetResultB.isSuccess()) {
             logger.error("Err checkVote failed.");
             return new ServerResponse().setState(RetCode.ERROR_PARAMETER).setMsg("无效参数").toJsonString();
         }
 
-        VoteRecord record = voteRecordRepository.save(recordRetResult.getData());
+        VoteRecord record = voteRecordRepository.save(recordRetResultB.getData());
         if (null == record) {
             logger.error("Err checkVote failed.");
             return new ServerResponse().setState(RetCode.ERROR_INTERNAL).setMsg("服务内部异常").toJsonString();
@@ -271,11 +271,11 @@ public class DidVoteService {
         return voteRecord;
     }
 
-    RetResult<VoteRecord> checkVote(String address, String data) {
+    RetResultB<VoteRecord> checkVote(String address, String data) {
         String[] list = address.split("/");
         if (list.length == 0) {
             logger.info("Vote address format error.");
-            return RetResult.retErr("Vote address format error.");
+            return RetResultB.retErr("Vote address format error.");
         }
 
         List<String> voteKeyParseList = Arrays.asList(list);
@@ -287,12 +287,12 @@ public class DidVoteService {
         voteRecord.setServiceDid(didConfiguration.getDid());
         voteRecord = this.setHeight(voteRecord);
         if (null == voteRecord) {
-            return RetResult.retErr("Vote network error.");
+            return RetResultB.retErr("Vote network error.");
         }
 
         voteRecord = this.verifyCheck(voteRecord, data);
         if (null == voteRecord) {
-            return RetResult.retErr("Vote verify error");
+            return RetResultB.retErr("Vote verify error");
         }
 
         if (voteKeyParseList.contains("topic_object")) {
@@ -306,14 +306,14 @@ public class DidVoteService {
             voteRecord = this.resultChecker(voteRecord);
         } else {
             logger.info("Vote address not support. address:" + address);
-            return RetResult.retErr("Vote address not support. address:" + address);
+            return RetResultB.retErr("Vote address not support. address:" + address);
         }
 
         if (null == voteRecord) {
-            return RetResult.retErr("Vote check failed.");
+            return RetResultB.retErr("Vote check failed.");
         }
 
-        return RetResult.retOk(voteRecord);
+        return RetResultB.retOk(voteRecord);
     }
 
 }

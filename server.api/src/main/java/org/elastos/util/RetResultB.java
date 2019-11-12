@@ -1,6 +1,6 @@
 package org.elastos.util;
 
-public class RetResult<T> {
+public class RetResultB<T> {
     private boolean success;
     private String msg;
     private T data;
@@ -9,7 +9,7 @@ public class RetResult<T> {
         return success;
     }
 
-    public RetResult<T> setSuccess(boolean success) {
+    public RetResultB<T> setSuccess(boolean success) {
         this.success = success;
         return this;
     }
@@ -18,7 +18,7 @@ public class RetResult<T> {
         return msg;
     }
 
-    public RetResult<T> setMsg(String msg) {
+    public RetResultB<T> setMsg(String msg) {
         this.msg = msg;
         return this;
     }
@@ -27,17 +27,17 @@ public class RetResult<T> {
         return data;
     }
 
-    public RetResult<T> setData(T data) {
+    public RetResultB<T> setData(T data) {
         this.data = data;
         return this;
     }
 
-    public static <T> RetResult<T> retOk(T data) {
-        return new RetResult<T>().setSuccess(true).setData(data);
+    public static <T> RetResultB<T> retOk(T data) {
+        return new RetResultB<T>().setSuccess(true).setData(data);
     }
 
-    public static <T> RetResult<T> retErr(String msg) {
-        return new RetResult<T>().setSuccess(true).setMsg(msg);
+    public static <T> RetResultB<T> retErr(String msg) {
+        return new RetResultB<T>().setSuccess(false).setMsg(msg);
     }
 
 }

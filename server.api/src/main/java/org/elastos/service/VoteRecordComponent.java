@@ -10,11 +10,9 @@ import org.elastos.constants.VoteTopicType;
 import org.elastos.dao.VoteRecordRepository;
 import org.elastos.dto.VoteRecord;
 import org.elastos.pojo.DidProperty;
-import org.elastos.util.RetResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
