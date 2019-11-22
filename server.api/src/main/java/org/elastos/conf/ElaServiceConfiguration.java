@@ -15,6 +15,8 @@ public class ElaServiceConfiguration {
     private String didServicePrefix;
     private String didNodePrefix;
     private String elaNodePrefix;
+    private String packetTopicId;
+    private String packetUrl;
 
     public String getDidServicePrefix() {
         return didServicePrefix;
@@ -38,5 +40,21 @@ public class ElaServiceConfiguration {
 
     public void setElaNodePrefix(String elaNodePrefix) {
         this.elaNodePrefix = elaNodePrefix;
+    }
+
+    public String getPacketTopicId() {
+        return packetTopicId;
+    }
+
+    public void setPacketTopicId(String packetTopicId) {
+        this.packetTopicId = packetTopicId;
+    }
+
+    public String getPacketUrl() {
+        return packetUrl;
+    }
+
+    public void setPacketUrl(String packetUrl) {
+        this.packetUrl = packetUrl;
     }
 }

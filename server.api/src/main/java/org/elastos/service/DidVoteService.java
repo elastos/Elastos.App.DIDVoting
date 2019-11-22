@@ -14,6 +14,7 @@ import org.elastos.dto.VoteRecord;
 import org.elastos.pojo.DidProperty;
 import org.elastos.pojo.VoteOption;
 import org.elastos.pojo.VoteTopicObj;
+import org.elastos.util.HttpUtil;
 import org.elastos.util.RetResultB;
 import org.elastos.util.ServerResponse;
 import org.slf4j.Logger;
@@ -28,6 +29,7 @@ import java.util.*;
 public class DidVoteService {
 
     private static Logger logger = LoggerFactory.getLogger(DidVoteService.class);
+
 
     @Autowired
     DidConfiguration didConfiguration;
@@ -86,6 +88,14 @@ public class DidVoteService {
         }
 
         Map<String, String> map = new HashMap<>();
+
+        //11.22红包活动
+        String packet = getPacketData(record);
+        if (null != packet) {
+            map.put("packet", packet);
+
+        }
+
 //        //https://idchain.elastos.org/did/igcBAAKG28NDdTfyWDtpH33wevJrKuHay1/property_history/SNH48%E5%86%AF%E8%96%AA%E6%9C%B5
 //        String didExplorerUrl = elaServiceConfiguration.getDidExplorerUrl() + "/did/" + did + "/property_history/";
 //        try {
@@ -100,6 +110,37 @@ public class DidVoteService {
         map.put("txid", txid);
 
         return new ServerResponse().setState(RetCode.SUCCESS).setData(map).toJsonString();
+    }
+
+    String getPacketData(VoteRecord record) {
+        if (record.getType().equals(VoteTopicType.VOTE_TOPIC_TYPE_VOTE)
+                && elaServiceConfiguration.getPacketTopicId().equals(record.getTopicId())) {
+            String address = voteComponent.getAddressFromPublicKey(record.getPublicKey());
+            Double rest = null;
+            try {
+                rest = elaServiceComponent.getRestOfEla(address);
+            } catch (Exception e) {
+                e.printStackTrace();
+                logger.error("Err getPacketData getRestOfEla exception:" + e.getMessage());
+                return null;
+            }
+
+            if (rest < 10.0) {
+                logger.error("Err getPacketData rest not enough");
+                return null;
+            }
+
+            String response = HttpUtil.get(elaServiceConfiguration.getPacketUrl()
+                    + "&name=" + record.getDid() + "&address=" + address, null);
+            if (null == response) {
+                logger.error("Err: getPacketData HttpUtil.get failed");
+                return null;
+            }
+
+            return response;
+        } else {
+            return null;
+        }
     }
 
     private VoteRecord verifyCheck(VoteRecord voteRecord, String data) {

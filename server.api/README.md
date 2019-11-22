@@ -87,10 +87,12 @@ If Success, we will get response like:
 {
     "data": {
         "txid": "efd47380fa1dd8cc7823ae7cbc513bf7e69ed05aaef21c071a582607a6d4d246"
+        "packet":"packet data..."
     },
     "status": 200
 }
 ```
+if the did vote for packet topic, then have "packet" segment.
 
 ### Get vote did
 ```yaml

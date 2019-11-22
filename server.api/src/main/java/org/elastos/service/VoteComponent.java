@@ -257,7 +257,7 @@ public class VoteComponent {
         }
     }
 
-    private String getAddressFromPublicKey(String publicKey) {
+    String getAddressFromPublicKey(String publicKey) {
         byte[] pub = DatatypeConverter.parseHexBinary(publicKey);
         byte[] rs = Util.CreateSingleSignatureRedeemScript(pub, 1);
         byte[] ph = Util.ToCodeHash(rs, 1);
