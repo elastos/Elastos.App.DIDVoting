@@ -7,9 +7,12 @@ import com.alibaba.fastjson.parser.Feature;
 import org.apache.commons.lang3.StringUtils;
 import org.elastos.conf.DidConfiguration;
 import org.elastos.conf.ElaServiceConfiguration;
+import org.elastos.conf.PacketConfiguration;
 import org.elastos.constants.RetCode;
 import org.elastos.constants.VoteTopicType;
+import org.elastos.dao.PacketRecordRepository;
 import org.elastos.dao.VoteRecordRepository;
+import org.elastos.dto.PacketRecord;
 import org.elastos.dto.VoteRecord;
 import org.elastos.pojo.DidProperty;
 import org.elastos.pojo.VoteOption;
@@ -22,6 +25,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.web3j.abi.datatypes.Int;
 
 import java.util.*;
 
@@ -32,19 +36,25 @@ public class DidVoteService {
 
 
     @Autowired
-    DidConfiguration didConfiguration;
+    private DidConfiguration didConfiguration;
 
     @Autowired
-    ElaServiceConfiguration elaServiceConfiguration;
+    private ElaServiceConfiguration elaServiceConfiguration;
 
     @Autowired
-    ElaServiceComponent elaServiceComponent;
+    private PacketConfiguration packetConfiguration;
 
     @Autowired
-    VoteComponent voteComponent;
+    private ElaServiceComponent elaServiceComponent;
 
     @Autowired
-    VoteRecordRepository voteRecordRepository;
+    private VoteComponent voteComponent;
+
+    @Autowired
+    private VoteRecordRepository voteRecordRepository;
+
+    @Autowired
+    private PacketRecordRepository packetRecordRepository;
 
     private ElaDidService elaDidService = new ElaDidService();
 
@@ -89,11 +99,10 @@ public class DidVoteService {
 
         Map<String, String> map = new HashMap<>();
 
-        //11.22红包活动
-        String packet = getPacketData(record);
+        //创建红包
+        String packet = procPacketData(record);
         if (null != packet) {
             map.put("packet", packet);
-
         }
 
 //        //https://idchain.elastos.org/did/igcBAAKG28NDdTfyWDtpH33wevJrKuHay1/property_history/SNH48%E5%86%AF%E8%96%AA%E6%9C%B5
@@ -112,35 +121,101 @@ public class DidVoteService {
         return new ServerResponse().setState(RetCode.SUCCESS).setData(map).toJsonString();
     }
 
-    String getPacketData(VoteRecord record) {
-        if (record.getType().equals(VoteTopicType.VOTE_TOPIC_TYPE_VOTE)
-                && elaServiceConfiguration.getPacketTopicId().equals(record.getTopicId())) {
-            String address = voteComponent.getAddressFromPublicKey(record.getPublicKey());
-            Double rest = null;
-            try {
-                rest = elaServiceComponent.getRestOfEla(address);
-            } catch (Exception e) {
-                e.printStackTrace();
-                logger.error("Err getPacketData getRestOfEla exception:" + e.getMessage());
-                return null;
-            }
-
-            if (rest < 10.0) {
-                logger.error("Err getPacketData rest not enough");
-                return null;
-            }
-
-            String response = HttpUtil.get(elaServiceConfiguration.getPacketUrl()
-                    + "&name=" + record.getDid() + "&address=" + address, null);
-            if (null == response) {
-                logger.error("Err: getPacketData HttpUtil.get failed");
-                return null;
-            }
-
-            return response;
+    String procPacketData(VoteRecord record) {
+        if (record.getType().equals(VoteTopicType.VOTE_TOPIC_TYPE_OBJECT)) {
+            return packetCreator(record);
+        } else if (record.getType().equals(VoteTopicType.VOTE_TOPIC_TYPE_VOTE)) {
+            return getPacketData(record);
+        } else if (record.getType().equals(VoteTopicType.VOTE_TOPIC_TYPE_RESULT)) {
+            delPacketData(record);
+            return null;
         } else {
             return null;
         }
+    }
+
+    private String packetCreator(VoteRecord record) {
+        String data = record.getPropertyValue();
+        try {
+            JSONObject map = JSON.parseObject(data, Feature.OrderedField);
+            String packet = map.getString("CreatePacket");
+            if (StringUtils.isBlank(packet)) {
+                return null;
+            }
+
+            String response = HttpUtil.post(packetConfiguration.getCreatePacketUrl(), packet, null);
+            if (null == response) {
+                logger.error("Err: packetCreator HttpUtil.post failed");
+                return null;
+            }
+            JSONObject responseObj = JSON.parseObject(response);
+            Integer status = responseObj.getInteger("status");
+            if ((null == status) || (200 != status)) {
+                logger.error("Err: packetCreator response failed");
+                return response;
+            }
+
+            JSONObject result = responseObj.getJSONObject("result");
+            String hash = result.getString("packet_hash");
+            if (null == hash) {
+                logger.error("Err: packetCreator get hash failed");
+                return response;
+            }
+
+            PacketRecord packetRecord = new PacketRecord();
+            packetRecord.setTopicId(record.getTopicId());
+            packetRecord.setPacketHash(hash);
+            packetRecordRepository.save(packetRecord);
+            return response;
+        } catch (Exception e) {
+            e.printStackTrace();
+            logger.error("Err packetCreator exception:" + e.getMessage());
+            return null;
+        }
+    }
+
+
+    private String getPacketData(VoteRecord record) {
+        Optional<PacketRecord> recordOptional = packetRecordRepository.findByTopicId(record.getTopicId());
+        if (!recordOptional.isPresent()) {
+            return null;
+        }
+        String hash = recordOptional.get().getPacketHash();
+
+        String address = voteComponent.getAddressFromPublicKey(record.getPublicKey());
+        Double rest = null;
+        try {
+            rest = elaServiceComponent.getRestOfEla(address);
+        } catch (Exception e) {
+            e.printStackTrace();
+            logger.error("Err getPacketData getRestOfEla exception:" + e.getMessage());
+            return null;
+        }
+
+        if (rest < 10.0) {
+            logger.error("Err getPacketData rest not enough");
+            return null;
+        }
+
+        String response = HttpUtil.get( packetConfiguration.getGrabPacketUrl()
+                + "?packet_hash=" + hash + "&name=" + record.getDid() + "&address=" + address, null);
+        if (null == response) {
+            logger.error("Err: getPacketData HttpUtil.get failed");
+            return null;
+        }
+
+        return response;
+    }
+
+    private void delPacketData(VoteRecord record) {
+        Optional<PacketRecord> recordOptional = packetRecordRepository.findByTopicId(record.getTopicId());
+        if (!recordOptional.isPresent()) {
+            return;
+        }
+
+        PacketRecord record1 = recordOptional.get();
+        record1.setDel(true);
+        packetRecordRepository.save(record1);
     }
 
     private VoteRecord verifyCheck(VoteRecord voteRecord, String data) {
