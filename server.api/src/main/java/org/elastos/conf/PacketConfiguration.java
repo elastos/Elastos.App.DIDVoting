@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 public class PacketConfiguration {
     private String createPacketUrl;
     private String grabPacketUrl;
+    private String peekPacketUrl;
 
     public String getCreatePacketUrl() {
         return createPacketUrl;
@@ -29,5 +30,13 @@ public class PacketConfiguration {
 
     public void setGrabPacketUrl(String grabPacketUrl) {
         this.grabPacketUrl = grabPacketUrl;
+    }
+
+    public String getPeekPacketUrl() {
+        return peekPacketUrl;
+    }
+
+    public void setPeekPacketUrl(String peekPacketUrl) {
+        this.peekPacketUrl = peekPacketUrl;
     }
 }

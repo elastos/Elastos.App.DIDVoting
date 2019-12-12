@@ -111,3 +111,18 @@ If Success, we will get response like:
 }
 ```
 
+### Get vote packet information
+```yaml
+HTTP: GET 
+URL: /api/1/didvoting/packet_info?topic_id={wirte topic id here}
+HEADERS: 
+    Content-Type: application/json
+```
+If Success, we will get response like:
+```json
+{
+    "data": "{\"result\":{\"desc\":\"Not_ready\",\"packet_detail\":{\"language\":\"en_US\",\"packet_amt\":1.0,\"packet_blessing\":\"Good luck , Good fortune\",\"packet_creator\":\"Elaphant wallet\",\"packet_end_timestamp\":1575688220255,\"packet_hash\":\"7219749293820547\",\"packet_num\":500,\"packet_rcv_amt\":5.5312E-4,\"packet_rcv_num\":1,\"packet_rcver_details\":[{\"address\":\"EZdDnKBRnV8o77gjr1M3mWBLZqLA3WBjB7\",\"amount\":5.5312E-4,\"name\":\"icyQGvLVsepfJ6PAuL43sTcjh9xjZEW5Ge\",\"time_stamp\":1575601973000}],\"packet_start_timestamp\":1575601820306,\"packet_type\":0}},\"status\":200}",
+    "state": 0
+}
+```
+

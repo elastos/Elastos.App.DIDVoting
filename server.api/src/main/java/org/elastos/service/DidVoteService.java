@@ -121,6 +121,23 @@ public class DidVoteService {
         return new ServerResponse().setState(RetCode.SUCCESS).setData(map).toJsonString();
     }
 
+    public String peekPacketData(String topicId) {
+        Optional<PacketRecord> recordOptional = packetRecordRepository.findByTopicId(topicId);
+        if (!recordOptional.isPresent()) {
+            return new ServerResponse().setState(RetCode.ERROR_PARAMETER).setMsg("传入参数异常").toJsonString();
+        }
+        String hash = recordOptional.get().getPacketHash();
+
+        String response = HttpUtil.get( packetConfiguration.getPeekPacketUrl()
+                + "?packet_hash=" + hash + "&show_receivers=true", null);
+        if (null == response) {
+            logger.error("Err: peekPacketData HttpUtil.get failed");
+            return new ServerResponse().setState(RetCode.ERROR_DATA_NOT_FOUND).setMsg("获取红包信息异常").toJsonString();
+        }
+
+        return new ServerResponse().setState(RetCode.SUCCESS).setData(response).toJsonString();
+    }
+
     String procPacketData(VoteRecord record) {
         if (record.getType().equals(VoteTopicType.VOTE_TOPIC_TYPE_OBJECT)) {
             return packetCreator(record);
@@ -174,7 +191,6 @@ public class DidVoteService {
         }
     }
 
-
     private String getPacketData(VoteRecord record) {
         Optional<PacketRecord> recordOptional = packetRecordRepository.findByTopicId(record.getTopicId());
         if (!recordOptional.isPresent()) {
@@ -183,19 +199,6 @@ public class DidVoteService {
         String hash = recordOptional.get().getPacketHash();
 
         String address = voteComponent.getAddressFromPublicKey(record.getPublicKey());
-        Double rest = null;
-        try {
-            rest = elaServiceComponent.getRestOfEla(address);
-        } catch (Exception e) {
-            e.printStackTrace();
-            logger.error("Err getPacketData getRestOfEla exception:" + e.getMessage());
-            return null;
-        }
-
-        if (rest < 10.0) {
-            logger.error("Err getPacketData rest not enough");
-            return null;
-        }
 
         String response = HttpUtil.get( packetConfiguration.getGrabPacketUrl()
                 + "?packet_hash=" + hash + "&name=" + record.getDid() + "&address=" + address, null);
